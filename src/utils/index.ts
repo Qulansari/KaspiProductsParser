@@ -4,17 +4,18 @@ import { ProductModel } from '../db/product_category';
 import cron from 'node-cron';
 
 export class Utils {
-    public static async addToScrapeQueue(limit: number = 1000): Promise<void> {
+    public static async addToScrapeQueue(limit: number = 2000, skip: number = 0): Promise<void> {
         try {
             await MongoDataBase.initDataBaseConnection();
     
             const cursor = ProductModel.find(
                 { productUrl: { $exists: true } },
                 { _id: 1, productUrl: 1 }
-            ).limit(limit).cursor();
+            ).skip(skip).limit(1).cursor();
 
             let count = 0;
-            for (let product = await cursor.next(); product != null; product = await cursor.next()) {
+            for (let i = 0; i<limit; i++) {
+                const product = await cursor.next();
                 await scrapeQueue.add(
                     {
                         productId: product._id,
@@ -38,14 +39,15 @@ export class Utils {
     }
 }
 
-
+let skip = 0
 cron.schedule('* * * * *', async () => {
     try {
         const jobCounts = await scrapeQueue.getJobCounts();
         const totalJobs = jobCounts.waiting + jobCounts.active + jobCounts.delayed + jobCounts.failed;
 
         if (totalJobs < 10000) {
-            await Utils.addToScrapeQueue(3000);
+            skip += 2000
+            await Utils.addToScrapeQueue(2000);
         } else {
             console.log(`Queue has ${totalJobs} jobs. Waiting for the next check.`);
         }
