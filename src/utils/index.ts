@@ -11,11 +11,10 @@ export class Utils {
             const cursor = ProductModel.find(
                 { productUrl: { $exists: true } },
                 { _id: 1, productUrl: 1 }
-            ).skip(skip).limit(1).cursor();
+            ).skip(skip).limit(limit).cursor();
 
             let count = 0;
-            for (let i = 0; i<limit; i++) {
-                const product = await cursor.next();
+            for (let product = await cursor.next(); product != null; product = await cursor.next()) {
                 await scrapeQueue.add(
                     {
                         productId: product._id,
@@ -47,7 +46,7 @@ cron.schedule('* * * * *', async () => {
 
         if (totalJobs < 10000) {
             skip += 2000
-            await Utils.addToScrapeQueue(2000);
+            await Utils.addToScrapeQueue(2000, skip);
         } else {
             console.log(`Queue has ${totalJobs} jobs. Waiting for the next check.`);
         }

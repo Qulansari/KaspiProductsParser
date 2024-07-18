@@ -19,10 +19,10 @@ const product_category_1 = require("../db/product_category");
 const node_cron_1 = __importDefault(require("node-cron"));
 class Utils {
     static addToScrapeQueue() {
-        return __awaiter(this, arguments, void 0, function* (limit = 1000) {
+        return __awaiter(this, arguments, void 0, function* (limit = 2000, skip = 0) {
             try {
                 yield db_1.MongoDataBase.initDataBaseConnection();
-                const cursor = product_category_1.ProductModel.find({ productUrl: { $exists: true } }, { _id: 1, productUrl: 1 }).limit(limit).cursor();
+                const cursor = product_category_1.ProductModel.find({ productUrl: { $exists: true } }, { _id: 1, productUrl: 1 }).skip(skip).limit(limit).cursor();
                 let count = 0;
                 for (let product = yield cursor.next(); product != null; product = yield cursor.next()) {
                     yield queues_1.scrapeQueue.add({
@@ -47,12 +47,14 @@ class Utils {
     }
 }
 exports.Utils = Utils;
+let skip = 0;
 node_cron_1.default.schedule('* * * * *', () => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const jobCounts = yield queues_1.scrapeQueue.getJobCounts();
         const totalJobs = jobCounts.waiting + jobCounts.active + jobCounts.delayed + jobCounts.failed;
         if (totalJobs < 10000) {
-            yield Utils.addToScrapeQueue(3000);
+            skip += 2000;
+            yield Utils.addToScrapeQueue(2000, skip);
         }
         else {
             console.log(`Queue has ${totalJobs} jobs. Waiting for the next check.`);
